@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, tasks, InsertTask } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,109 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Get all tasks for a user
+ */
+export async function getUserTasks(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get tasks: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db.select().from(tasks).where(eq(tasks.userId, userId));
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get user tasks:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get a single task by ID and verify ownership
+ */
+export async function getTaskById(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get task: database not available");
+    return undefined;
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error) {
+    console.error("[Database] Failed to get task:", error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new task
+ */
+export async function createTask(task: InsertTask) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create task: database not available");
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db.insert(tasks).values(task);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to create task:", error);
+    throw error;
+  }
+}
+
+/**
+ * Update a task
+ */
+export async function updateTask(taskId: number, userId: number, updates: Partial<InsertTask>) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update task: database not available");
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db
+      .update(tasks)
+      .set(updates)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to update task:", error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a task
+ */
+export async function deleteTask(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete task: database not available");
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db
+      .delete(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to delete task:", error);
+    throw error;
+  }
+}
